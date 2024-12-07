@@ -1,0 +1,14 @@
+[package]
+name = "frost-adaptor-signature"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+frost-core = { git = "https://github.com/sideprotocol/frost.git", branch="dependency", features = ["internals", "serde"] }
+frost-secp256k1-tr = {git = "https://github.com/sideprotocol/frost.git", branch="dependency"}
+
+k256 = { version = "0.13.4", features = ["arithmetic", "expose-field", "hash2curve", "serde"] }
+serde = { version = "1.0.160", features = ["derive"], optional = true }
+rand_core = "0.6"
+sha2 = "0.10.2"
+secp256k1 = "0.30.0"
