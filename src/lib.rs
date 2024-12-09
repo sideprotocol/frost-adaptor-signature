@@ -29,7 +29,7 @@ pub mod round2 {
         signing_package: &SigningPackage,
         signer_nonces: &round1::SigningNonces,
         key_package: &keys::KeyPackage,
-        adaptor_point: <Secp256K1Group as Group>::Element,
+        adaptor_point: &<Secp256K1Group as Group>::Element,
     ) -> Result<SignatureShare, Error> {
         if signing_package.signing_commitments().len() < *key_package.min_signers() as usize {
             return Err(Error::IncorrectNumberOfCommitments);
@@ -71,7 +71,7 @@ pub mod round2 {
         // Compute the per-message challenge.
         let challenge = Secp256K1Sha256TR::challenge(
             &adapted_group_commitment,
-            &key_package.verifying_key(),
+            key_package.verifying_key(),
             signing_package.message(),
         )?;
 
@@ -92,27 +92,41 @@ pub mod round2 {
         signing_package: &SigningPackage,
         signer_nonces: &round1::SigningNonces,
         key_package: &keys::KeyPackage,
-        group_commitment: <Secp256K1Group as Group>::Element,
+        group_commitment: &<Secp256K1Group as Group>::Element,
         binding_factor: BindingFactor<Secp256K1Sha256TR>,
+        nonces_with_lambda: bool
     ) -> Result<SignatureShare, Error> {
         // Compute Lagrange coefficient.
         let lambda_i =
             frost::derive_interpolating_value(key_package.identifier(), signing_package)?;
 
+        // Multiply nonces by lambda if nonces_with_lambda is true
+        let signer_nonces = if nonces_with_lambda {
+            let hiding =  frost::round1::Nonce::<Secp256K1Sha256TR>::from_scalar(lambda_i * signer_nonces.hiding().to_scalar());
+            let binding = frost::round1::Nonce::<Secp256K1Sha256TR>::from_scalar(lambda_i * signer_nonces.binding().to_scalar());
+
+            frost::round1::SigningNonces::from_nonces(hiding, binding)
+        } else {
+            signer_nonces.clone()
+        };
+
+        let (signing_package, signer_nonces, key_package) =
+            Secp256K1Sha256TR::pre_sign(signing_package, &signer_nonces, key_package)?;
+
         // Compute the per-message challenge.
         let challenge = <Secp256K1Sha256TR as Ciphersuite>::challenge(
-            &group_commitment,
-            &key_package.verifying_key(),
-            &signing_package.message(),
+            group_commitment,
+            key_package.verifying_key(),
+            signing_package.message(),
         )?;
 
         // Compute the signature share.
         let signature_share = Secp256K1Sha256TR::compute_signature_share(
-            &GroupCommitment::<Secp256K1Sha256TR>::from_element(group_commitment),
-            signer_nonces,
+            &GroupCommitment::<Secp256K1Sha256TR>::from_element(*group_commitment),
+            &signer_nonces,
             binding_factor,
             lambda_i,
-            key_package,
+            &key_package,
             challenge,
         );
 
@@ -204,12 +218,6 @@ pub fn aggregate_with_group_commitment(
     let (signing_package, signature_shares, pubkeys) =
         Secp256K1Sha256TR::pre_aggregate(signing_package, signature_shares, pubkeys)?;
 
-    let R = if !GroupCommitment::<Secp256K1Sha256TR>::from_element(*group_commitment).has_even_y() {
-        -group_commitment
-    } else {
-        *group_commitment
-    };
-
     // The aggregation of the signature shares by summing them up, resulting in
     // a plain Schnorr signature.
     //
@@ -222,7 +230,7 @@ pub fn aggregate_with_group_commitment(
         z = z + signature_share.share().0;
     }
 
-    let signature = Signature::new(R, z);
+    let signature = Signature::new(*group_commitment, z);
 
     // Verify the aggregate signature
     let verification_result = pubkeys
