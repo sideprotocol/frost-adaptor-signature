@@ -7,7 +7,7 @@ pub use frost_core::{
 };
 pub use frost_secp256k1_tr::{
     keys::EvenY, Error, Identifier, Secp256K1Group, Secp256K1ScalarField, Secp256K1Sha256TR,
-    Signature, SigningKey, SigningPackage, VerifyingKey,
+    Signature, SigningKey, SigningPackage, VerifyingKey, aggregate, aggregate_with_tweak,
 };
 
 use k256::{elliptic_curve::ops::MulByGenerator, ProjectivePoint, Scalar};
@@ -138,7 +138,7 @@ pub mod round2 {
 pub struct AdaptorSignature(Signature);
 
 /// Aggregate the adaptor signature shares with the given adaptor point
-pub fn aggregate(
+pub fn aggregate_with_adaptor_point(
     signing_package: &SigningPackage,
     signature_shares: &BTreeMap<Identifier, round2::SignatureShare>,
     pubkeys: &keys::PublicKeyPackage,
