@@ -134,13 +134,15 @@ pub mod round2 {
     }
 }
 
+pub struct AdaptorSignature(Signature);
+
 /// Aggregate the adaptor signature shares with the given adaptor point
 pub fn aggregate(
     signing_package: &SigningPackage,
     signature_shares: &BTreeMap<Identifier, round2::SignatureShare>,
     pubkeys: &keys::PublicKeyPackage,
     adaptor_point: &<Secp256K1Group as Group>::Element,
-) -> Result<Signature, Error> {
+) -> Result<AdaptorSignature, Error> {
     // Check if signing_package.signing_commitments and signature_shares have
     // the same set of identifiers, and if they are all in pubkeys.verifying_shares.
     if signing_package.signing_commitments().len() != signature_shares.len() {
@@ -178,12 +180,11 @@ pub fn aggregate(
         z = z + signature_share.share().0;
     }
 
-    let signature = Signature::new(group_commitment.to_element(), z);
+    let signature = AdaptorSignature(Signature::new(group_commitment.to_element(), z));
 
     // Verify the aggregate signature
-    let verification_result = verify_signature(
+    let verification_result = signature.verify_signature(
         signing_package.message(),
-        &signature,
         pubkeys.verifying_key(),
         adaptor_point,
     );
@@ -243,54 +244,53 @@ pub fn aggregate_with_group_commitment(
     Ok(signature)
 }
 
-/// Verify the aggregated adaptor signature
-pub fn verify_signature(
-    message: &[u8],
-    signature: &Signature,
-    public_key: &VerifyingKey,
-    adaptor_point: &<Secp256K1Group as Group>::Element,
-) -> Result<(), Error> {
-    let R = signature.R().to_owned();
+impl AdaptorSignature {
+    /// Verify the aggregated adaptor signature
+    pub fn verify_signature(&self,
+        message: &[u8],
+        public_key: &VerifyingKey,
+        adaptor_point: &<Secp256K1Group as Group>::Element,
+    ) -> Result<(), Error> {
+        let R = self.0.R().to_owned();
 
-    let adapted_R = R + adaptor_point;
+        let adapted_R = R + adaptor_point;
 
-    let c = Secp256K1Sha256TR::challenge(&adapted_R, public_key, message)?;
+        let c = Secp256K1Sha256TR::challenge(&adapted_R, public_key, message)?;
 
-    let effective_R = if !GroupCommitment::<Secp256K1Sha256TR>::from_element(adapted_R).has_even_y()
-    {
-        -R
-    } else {
-        R
-    };
+        let effective_R = if !GroupCommitment::<Secp256K1Sha256TR>::from_element(adapted_R).has_even_y()
+        {
+            -R
+        } else {
+            R
+        };
 
-    let vk = public_key.to_element();
+        let vk = public_key.to_element();
 
-    let zB = Secp256K1Group::generator() * signature.z();
-    let cA = vk * c.to_scalar();
-    let check = (zB - cA - effective_R) * Secp256K1Group::cofactor();
+        let zB = Secp256K1Group::generator() * self.0.z();
+        let cA = vk * c.to_scalar();
+        let check = (zB - cA - effective_R) * Secp256K1Group::cofactor();
 
-    if check == Secp256K1Group::identity() {
-        Ok(())
-    } else {
-        Err(Error::InvalidSignature)
+        if check == Secp256K1Group::identity() {
+            Ok(())
+        } else {
+            Err(Error::InvalidSignature)
+        }
     }
-}
 
-/// Adapt the adaptor signature with the given adaptor secret.
-pub fn adapt(signature: &Signature, adaptor_secret: &Scalar) -> Signature {
-    let R = signature.R();
-    let s = signature.z();
+    /// Adapt the adaptor signature with the given adaptor secret.
+    pub fn adapt(&self, adaptor_secret: &Scalar) -> Signature {
 
-    let adaptor_point = ProjectivePoint::mul_by_generator(adaptor_secret);
-    let adapted_R = R + &adaptor_point;
+        let adaptor_point = ProjectivePoint::mul_by_generator(adaptor_secret);
+        let adapted_R = self.0.R() + &adaptor_point;
 
-    let adapted_s = if !GroupCommitment::<Secp256K1Sha256TR>::from_element(adapted_R).has_even_y() {
-        s - adaptor_secret
-    } else {
-        s + adaptor_secret
-    };
+        let adapted_s = if !GroupCommitment::<Secp256K1Sha256TR>::from_element(adapted_R).has_even_y() {
+            self.0.z() - adaptor_secret
+        } else {
+            self.0.z() + adaptor_secret
+        };
 
-    Signature::new(adapted_R, adapted_s)
+        Signature::new(adapted_R, adapted_s)
+    }   
 }
 
 #[cfg(test)]
