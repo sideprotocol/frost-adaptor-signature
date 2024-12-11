@@ -3,8 +3,7 @@
 use std::collections::BTreeMap;
 
 use frost_core::{
-    self as frost, compute_binding_factor_list, compute_group_commitment, BindingFactor,
-    BindingFactorList, Ciphersuite, Field, Group, GroupCommitment,
+    self as frost, compute_binding_factor_list, compute_group_commitment, serde::{Deserialize, Serialize}, BindingFactor, BindingFactorList, Ciphersuite, Field, Group, GroupCommitment
 };
 pub use frost_secp256k1_tr::{
     keys::EvenY, Error, Identifier, Secp256K1Group, Secp256K1ScalarField, Secp256K1Sha256TR,
@@ -134,6 +133,8 @@ pub mod round2 {
     }
 }
 
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AdaptorSignature(Signature);
 
 /// Aggregate the adaptor signature shares with the given adaptor point
