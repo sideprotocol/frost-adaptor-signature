@@ -2,8 +2,8 @@
 
 use std::collections::BTreeMap;
 
-use frost_core::{
-    self as frost, compute_binding_factor_list, compute_group_commitment, serde::{Deserialize, Serialize}, BindingFactor, BindingFactorList, Ciphersuite, Field, Group, GroupCommitment
+pub use frost_core::{
+    self as frost, compute_binding_factor_list, compute_group_commitment, BindingFactor, BindingFactorList, Ciphersuite, Field, Group, GroupCommitment
 };
 pub use frost_secp256k1_tr::{
     keys::EvenY, Error, Identifier, Secp256K1Group, Secp256K1ScalarField, Secp256K1Sha256TR,
