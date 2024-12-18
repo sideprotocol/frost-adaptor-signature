@@ -87,7 +87,17 @@ pub mod round2 {
         Ok(signature_share)
     }
 
-    pub fn sign_with_group_commitment(
+    pub fn sign_with_dkg_nonce(
+        signing_package: &SigningPackage,
+        signer_nonces: &round1::SigningNonces,
+        key_package: &keys::KeyPackage,
+        group_commitment: &<Secp256K1Group as Group>::Element,
+    ) -> Result<SignatureShare, Error> {
+        let binding_factor = BindingFactor::deserialize([0u8; 32].to_vec()).unwrap();
+        sign_with_group_commitment(signing_package, signer_nonces, key_package, group_commitment, binding_factor, true)
+    }
+
+    pub(crate) fn sign_with_group_commitment(
         signing_package: &SigningPackage,
         signer_nonces: &round1::SigningNonces,
         key_package: &keys::KeyPackage,
