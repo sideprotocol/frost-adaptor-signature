@@ -2,12 +2,10 @@
 
 use std::collections::BTreeMap;
 
-pub use frost_core::{
-    self as frost, compute_binding_factor_list, compute_group_commitment, BindingFactor, BindingFactorList, Ciphersuite, Field, Group, GroupCommitment
-};
+use frost_core::{compute_binding_factor_list, compute_group_commitment, derive_interpolating_value, round1::Nonce, BindingFactor, BindingFactorList, Ciphersuite, Field, Group, GroupCommitment};
 pub use frost_secp256k1_tr::{
-    keys::EvenY, Error, Identifier, Secp256K1Group, Secp256K1ScalarField, Secp256K1Sha256TR,
-    Signature, SigningKey, SigningPackage, VerifyingKey, aggregate, aggregate_with_tweak,
+    keys::EvenY, Error, Identifier, Secp256K1Group, Secp256K1Sha256TR,
+    Signature, SigningPackage, VerifyingKey,
 };
 
 use k256::{elliptic_curve::ops::MulByGenerator, ProjectivePoint, Scalar};
@@ -52,7 +50,7 @@ pub mod round2 {
         // binding factor.
         let binding_factor_list: BindingFactorList<Secp256K1Sha256TR> =
             compute_binding_factor_list(&signing_package, &key_package.verifying_key(), &[])?;
-        let binding_factor: frost::BindingFactor<Secp256K1Sha256TR> = binding_factor_list
+        let binding_factor: BindingFactor<Secp256K1Sha256TR> = binding_factor_list
             .get(&key_package.identifier())
             .ok_or(frost_secp256k1_tr::Error::UnknownIdentifier)?
             .clone();
@@ -65,7 +63,7 @@ pub mod round2 {
 
         // Compute Lagrange coefficient.
         let lambda_i =
-            frost::derive_interpolating_value(key_package.identifier(), &signing_package)?;
+            derive_interpolating_value(key_package.identifier(), &signing_package)?;
 
         // Compute the per-message challenge.
         let challenge = Secp256K1Sha256TR::challenge(
@@ -106,15 +104,14 @@ pub mod round2 {
         nonces_with_lambda: bool
     ) -> Result<SignatureShare, Error> {
         // Compute Lagrange coefficient.
-        let lambda_i =
-            frost::derive_interpolating_value(key_package.identifier(), signing_package)?;
+        let lambda_i = derive_interpolating_value(key_package.identifier(), signing_package)?;
 
         // Multiply nonces by lambda if nonces_with_lambda is true
         let signer_nonces = if nonces_with_lambda {
-            let hiding =  frost::round1::Nonce::<Secp256K1Sha256TR>::from_scalar(lambda_i * signer_nonces.hiding().to_scalar());
-            let binding = frost::round1::Nonce::<Secp256K1Sha256TR>::from_scalar(lambda_i * signer_nonces.binding().to_scalar());
+            let hiding =  Nonce::from_scalar(lambda_i * signer_nonces.hiding().to_scalar());
+            let binding = Nonce::from_scalar(lambda_i * signer_nonces.binding().to_scalar());
 
-            frost::round1::SigningNonces::from_nonces(hiding, binding)
+            round1::SigningNonces::from_nonces(hiding, binding)
         } else {
             signer_nonces.clone()
         };
@@ -147,64 +144,6 @@ pub mod round2 {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AdaptorSignature(Signature);
 
-/// Aggregate the adaptor signature shares with the given adaptor point
-pub fn aggregate_with_adaptor_point(
-    signing_package: &SigningPackage,
-    signature_shares: &BTreeMap<Identifier, round2::SignatureShare>,
-    pubkeys: &keys::PublicKeyPackage,
-    adaptor_point: &<Secp256K1Group as Group>::Element,
-) -> Result<AdaptorSignature, Error> {
-    // Check if signing_package.signing_commitments and signature_shares have
-    // the same set of identifiers, and if they are all in pubkeys.verifying_shares.
-    if signing_package.signing_commitments().len() != signature_shares.len() {
-        return Err(Error::UnknownIdentifier);
-    }
-
-    if !signing_package.signing_commitments().keys().all(|id| {
-        #[cfg(feature = "cheater-detection")]
-        return signature_shares.contains_key(id) && pubkeys.verifying_shares().contains_key(id);
-        #[cfg(not(feature = "cheater-detection"))]
-        return signature_shares.contains_key(id);
-    }) {
-        return Err(Error::UnknownIdentifier);
-    }
-
-    let (signing_package, signature_shares, pubkeys) =
-        Secp256K1Sha256TR::pre_aggregate(signing_package, signature_shares, pubkeys)?;
-
-    // Encodes the signing commitment list produced in round one as part of generating [`BindingFactor`], the
-    // binding factor.
-    let binding_factor_list: BindingFactorList<Secp256K1Sha256TR> =
-        compute_binding_factor_list(&signing_package, &pubkeys.verifying_key(), &[])?;
-    // Compute the group commitment from signing commitments produced in round one.
-    let group_commitment = frost::compute_group_commitment(&signing_package, &binding_factor_list)?;
-
-    // The aggregation of the signature shares by summing them up, resulting in
-    // a plain Schnorr signature.
-    //
-    // Implements [`aggregate`] from the spec.
-    //
-    // [`aggregate`]: https://datatracker.ietf.org/doc/html/rfc9591#name-signature-share-aggregation
-    let mut z = <<Secp256K1Group as Group>::Field>::zero();
-
-    for signature_share in signature_shares.values() {
-        z = z + signature_share.share().0;
-    }
-
-    let signature = AdaptorSignature(Signature::new(group_commitment.to_element(), z));
-
-    // Verify the aggregate signature
-    let verification_result = signature.verify_signature(
-        signing_package.message(),
-        pubkeys.verifying_key(),
-        adaptor_point,
-    );
-
-    verification_result?;
-
-    Ok(signature)
-}
-
 /// Aggregate signature shares with the given group commitment
 pub fn aggregate_with_group_commitment(
     signing_package: &SigningPackage,
@@ -227,7 +166,7 @@ pub fn aggregate_with_group_commitment(
         return Err(Error::UnknownIdentifier);
     }
 
-    let (signing_package, signature_shares, pubkeys) =
+    let (_signing_package, signature_shares, _pubkeys) =
         Secp256K1Sha256TR::pre_aggregate(signing_package, signature_shares, pubkeys)?;
 
     // The aggregation of the signature shares by summing them up, resulting in
@@ -243,14 +182,6 @@ pub fn aggregate_with_group_commitment(
     }
 
     let signature = Signature::new(*group_commitment, z);
-
-    // Verify the aggregate signature
-    let verification_result = pubkeys
-        .verifying_key()
-        .verify(signing_package.message(), &signature);
-
-    #[cfg(not(feature = "cheater-detection"))]
-    verification_result?;
 
     Ok(signature)
 }
