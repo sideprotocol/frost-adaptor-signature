@@ -249,7 +249,7 @@ dependencies = [
 
 [[package]]
 name = "frost-adaptor-signature"
-version = "0.1.1-dev3"
+version = "0.1.1-dev4"
 dependencies = [
  "frost-core",
  "frost-secp256k1-tr",
