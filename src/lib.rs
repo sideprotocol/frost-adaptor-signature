@@ -6,6 +6,7 @@ use frost_core::{compute_binding_factor_list, compute_group_commitment, derive_i
 pub use frost_secp256k1_tr::{
     keys::EvenY, Error, GroupError, Identifier, Secp256K1Group, Secp256K1ScalarField, Secp256K1Sha256TR,
     Signature, SigningPackage, VerifyingKey, Group, Field, GroupCommitment,
+    aggregate, aggregate_with_tweak,
 };
 
 use k256::{elliptic_curve::ops::MulByGenerator, ProjectivePoint, Scalar};
