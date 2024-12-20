@@ -2,10 +2,10 @@
 
 use std::collections::BTreeMap;
 
-use frost_core::{compute_binding_factor_list, compute_group_commitment, derive_interpolating_value, round1::Nonce, BindingFactor, BindingFactorList, Ciphersuite, Field, Group, GroupCommitment};
+use frost_core::{compute_binding_factor_list, compute_group_commitment, derive_interpolating_value, round1::Nonce, BindingFactor, BindingFactorList, Ciphersuite};
 pub use frost_secp256k1_tr::{
     keys::EvenY, Error, Identifier, Secp256K1Group, Secp256K1Sha256TR,
-    Signature, SigningPackage, VerifyingKey,
+    Signature, SigningPackage, VerifyingKey, Group, Field, GroupCommitment,
 };
 
 use k256::{elliptic_curve::ops::MulByGenerator, ProjectivePoint, Scalar};
