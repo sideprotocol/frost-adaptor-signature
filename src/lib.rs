@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use frost_core::{compute_binding_factor_list, compute_group_commitment, derive_interpolating_value, round1::Nonce, BindingFactor, BindingFactorList, Ciphersuite};
+use frost_core::{compute_binding_factor_list, compute_group_commitment, derive_interpolating_value, round1::Nonce, serde::{Deserialize, Serialize}, BindingFactor, BindingFactorList, Ciphersuite};
 pub use frost_secp256k1_tr::{
     keys::EvenY, Error, GroupError, Identifier, Secp256K1Group, Secp256K1ScalarField, Secp256K1Sha256TR,
     Signature, SigningPackage, VerifyingKey, Group, Field, GroupCommitment,
@@ -141,10 +141,6 @@ pub mod round2 {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AdaptorSignature(Signature);
-
 /// Aggregate signature shares with the given group commitment
 pub fn aggregate_with_group_commitment(
     signing_package: &SigningPackage,
@@ -186,6 +182,10 @@ pub fn aggregate_with_group_commitment(
 
     Ok(signature)
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct AdaptorSignature(pub Signature);
 
 impl AdaptorSignature {
     /// Verify the aggregated adaptor signature
