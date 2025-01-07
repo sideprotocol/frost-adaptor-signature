@@ -2,10 +2,10 @@
 
 use std::collections::BTreeMap;
 
-use frost_core::{compute_binding_factor_list, compute_group_commitment, derive_interpolating_value, round1::Nonce, serde::{Deserialize, Serialize}, BindingFactor, BindingFactorList, Ciphersuite};
+use frost_core::{compute_binding_factor_list, compute_group_commitment, derive_interpolating_value, BindingFactor, BindingFactorList, Ciphersuite};
 pub use frost_secp256k1_tr::{
     keys::EvenY, Error, GroupError, Identifier, Secp256K1Group, Secp256K1ScalarField, Secp256K1Sha256TR,
-    Signature, SigningPackage, VerifyingKey, Group, Field, GroupCommitment,
+    Signature, SigningPackage, VerifyingKey, Group, Field, GroupCommitment, 
     aggregate, aggregate_with_tweak,
 };
 
@@ -16,6 +16,7 @@ pub mod keys {
 }
 
 pub mod round1 {
+    pub use frost_core::round1::Nonce;
     pub use frost_secp256k1_tr::round1::*;
 }
 
@@ -109,8 +110,8 @@ pub mod round2 {
 
         // Multiply nonces by lambda if nonces_with_lambda is true
         let signer_nonces = if nonces_with_lambda {
-            let hiding =  Nonce::from_scalar(lambda_i * signer_nonces.hiding().to_scalar());
-            let binding = Nonce::from_scalar(lambda_i * signer_nonces.binding().to_scalar());
+            let hiding =  round1::Nonce::from_scalar(lambda_i * signer_nonces.hiding().to_scalar());
+            let binding = round1::Nonce::from_scalar(lambda_i * signer_nonces.binding().to_scalar());
 
             round1::SigningNonces::from_nonces(hiding, binding)
         } else {
