@@ -28,7 +28,7 @@ pub mod round2 {
         signing_package: &SigningPackage,
         signer_nonces: &round1::SigningNonces,
         key_package: &keys::KeyPackage,
-        adaptor_point: &<Secp256K1Group as Group>::Element,
+        adaptor_point: &VerifyingKey,
     ) -> Result<SignatureShare, Error> {
         if signing_package.signing_commitments().len() < *key_package.min_signers() as usize {
             return Err(Error::IncorrectNumberOfCommitments);
@@ -61,7 +61,7 @@ pub mod round2 {
         let group_commitment = compute_group_commitment(&signing_package, &binding_factor_list)?;
 
         // adapted group commitment
-        let adapted_group_commitment = group_commitment.to_element() + adaptor_point;
+        let adapted_group_commitment = group_commitment.to_element() + adaptor_point.to_element();
 
         // Compute Lagrange coefficient.
         let lambda_i =
@@ -91,7 +91,7 @@ pub mod round2 {
         signing_package: &SigningPackage,
         signer_nonces: &round1::SigningNonces,
         key_package: &keys::KeyPackage,
-        group_commitment: &<Secp256K1Group as Group>::Element,
+        group_commitment: &VerifyingKey,
     ) -> Result<SignatureShare, Error> {
         let binding_factor = BindingFactor::deserialize([0u8; 32].to_vec()).unwrap();
         sign_with_group_commitment(signing_package, signer_nonces, key_package, group_commitment, binding_factor, true)
@@ -101,7 +101,7 @@ pub mod round2 {
         signing_package: &SigningPackage,
         signer_nonces: &round1::SigningNonces,
         key_package: &keys::KeyPackage,
-        group_commitment: &<Secp256K1Group as Group>::Element,
+        group_commitment: &VerifyingKey,
         binding_factor: BindingFactor<Secp256K1Sha256TR>,
         nonces_with_lambda: bool
     ) -> Result<SignatureShare, Error> {
@@ -123,14 +123,14 @@ pub mod round2 {
 
         // Compute the per-message challenge.
         let challenge = <Secp256K1Sha256TR as Ciphersuite>::challenge(
-            group_commitment,
+            &group_commitment.to_element(),
             key_package.verifying_key(),
             signing_package.message(),
         )?;
 
         // Compute the signature share.
         let signature_share = Secp256K1Sha256TR::compute_signature_share(
-            &GroupCommitment::<Secp256K1Sha256TR>::from_element(*group_commitment),
+            &GroupCommitment::<Secp256K1Sha256TR>::from_element(group_commitment.to_element()),
             &signer_nonces,
             binding_factor,
             lambda_i,
@@ -147,7 +147,7 @@ pub fn aggregate_with_group_commitment(
     signing_package: &SigningPackage,
     signature_shares: &BTreeMap<Identifier, round2::SignatureShare>,
     pubkeys: &keys::PublicKeyPackage,
-    group_commitment: &<Secp256K1Group as Group>::Element,
+    group_commitment: &VerifyingKey,
 ) -> Result<Signature, Error> {
     // Check if signing_package.signing_commitments and signature_shares have
     // the same set of identifiers, and if they are all in pubkeys.verifying_shares.
@@ -179,7 +179,7 @@ pub fn aggregate_with_group_commitment(
         z = z + signature_share.share().0;
     }
 
-    let signature = Signature::new(*group_commitment, z);
+    let signature = Signature::new(group_commitment.to_element(), z);
 
     Ok(signature)
 }
