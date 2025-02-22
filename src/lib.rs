@@ -142,6 +142,62 @@ pub mod round2 {
     }
 }
 
+/// Aggregate the adaptor signature shares with the given adaptor point
+pub fn aggregate_with_adaptor_point(
+    signing_package: &SigningPackage,
+    signature_shares: &BTreeMap<Identifier, round2::SignatureShare>,
+    pubkeys: &keys::PublicKeyPackage,
+    adaptor_point: &VerifyingKey,
+) -> Result<AdaptorSignature, Error> {
+    // Check if signing_package.signing_commitments and signature_shares have
+    // the same set of identifiers, and if they are all in pubkeys.verifying_shares.
+    if signing_package.signing_commitments().len() != signature_shares.len() {
+        return Err(Error::UnknownIdentifier);
+    }
+
+    if !signing_package.signing_commitments().keys().all(|id| {
+        #[cfg(feature = "cheater-detection")]
+        return signature_shares.contains_key(id) && pubkeys.verifying_shares().contains_key(id);
+        #[cfg(not(feature = "cheater-detection"))]
+        return signature_shares.contains_key(id);
+    }) {
+        return Err(Error::UnknownIdentifier);
+    }
+
+    let (signing_package, signature_shares, pubkeys) =
+        Secp256K1Sha256TR::pre_aggregate(signing_package, signature_shares, pubkeys)?;
+
+    // Encodes the signing commitment list produced in round one as part of generating [`BindingFactor`], the
+    // binding factor.
+    let binding_factor_list: BindingFactorList<Secp256K1Sha256TR> =
+        compute_binding_factor_list(&signing_package, &pubkeys.verifying_key(), &[])?;
+    // Compute the group commitment from signing commitments produced in round one.
+    let group_commitment = compute_group_commitment(&signing_package, &binding_factor_list)?;
+
+    // The aggregation of the signature shares by summing them up, resulting in
+    // a plain Schnorr signature.
+    //
+    // Implements [`aggregate`] from the spec.
+    //
+    // [`aggregate`]: https://datatracker.ietf.org/doc/html/rfc9591#name-signature-share-aggregation
+    let mut z = <<Secp256K1Group as Group>::Field>::zero();
+
+    for signature_share in signature_shares.values() {
+        z = z + signature_share.share().0;
+    }
+
+    let signature = AdaptorSignature(Signature::new(group_commitment.to_element(), z));
+
+    // Verify the aggregate signature
+    signature.verify_signature(
+        signing_package.message(),
+        pubkeys.verifying_key(),
+        &adaptor_point.to_element(),
+    )?;
+
+    Ok(signature)
+}
+
 /// Aggregate signature shares with the given group commitment
 pub fn aggregate_with_group_commitment(
     signing_package: &SigningPackage,
