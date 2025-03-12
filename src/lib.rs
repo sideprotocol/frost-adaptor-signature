@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use frost_core::{compute_binding_factor_list, compute_group_commitment, derive_interpolating_value, BindingFactor, BindingFactorList, Ciphersuite};
 pub use frost_secp256k1_tr::{
     keys::EvenY, Error, GroupError, Identifier, Secp256K1Group, Secp256K1ScalarField, Secp256K1Sha256TR,
-    Signature, SigningPackage, VerifyingKey, Group, Field, GroupCommitment, 
+    Signature, SigningPackage, VerifyingKey, Group, Field, GroupCommitment,
     aggregate, aggregate_with_tweak,
 };
 
@@ -119,7 +119,7 @@ pub mod round2 {
             signer_nonces.clone()
         };
 
-        let (signing_package, signer_nonces, key_package) =
+        let (signing_package, _, key_package) =
             Secp256K1Sha256TR::pre_sign(signing_package, &signer_nonces, key_package)?;
 
         // Compute the per-message challenge.
@@ -138,6 +138,11 @@ pub mod round2 {
         //     &key_package,
         //     challenge,
         // );
+        let signer_nonces = if group_commitment.has_even_y() {
+            signer_nonces.clone()
+        } else {
+            negate_nonces(&signer_nonces)
+        };
 
         let z_share = lambda_i * Secp256K1ScalarField::deserialize(signer_nonces.hiding().serialize()[..].try_into().unwrap()).unwrap()
         + (lambda_i * key_package.signing_share().to_scalar() * challenge.to_scalar());
@@ -329,6 +334,22 @@ impl AdaptorSignature {
 
         Signature::new(adapted_R, adapted_s)
     }   
+}
+
+// Negate a Nonce
+fn negate_nonce(nonce: &round1::Nonce<Secp256K1Sha256TR>) -> round1::Nonce<Secp256K1Sha256TR> {
+    round1::Nonce::<Secp256K1Sha256TR>::from_scalar(-nonce.to_scalar())
+}
+
+// Negate a SigningNonces
+fn negate_nonces(signing_nonces: &round1::SigningNonces) -> round1::SigningNonces {
+    // TODO: this recomputes commitments which is expensive, and not needed.
+    // Create an `internals` SigningNonces::from_nonces_and_commitments or
+    // something similar.
+    round1::SigningNonces::from_nonces(
+        negate_nonce(signing_nonces.hiding()),
+        negate_nonce(signing_nonces.binding()),
+    )
 }
 
 #[cfg(test)]
