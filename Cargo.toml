@@ -8,12 +8,12 @@ repository = "https://github.com/sideprotocol/frost-adaptor-signature.git"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-frost-core = { git = "https://github.com/sideprotocol/frost.git", branch="dependency", features = ["internals"] }
-frost-secp256k1-tr = {git = "https://github.com/sideprotocol/frost.git", branch="dependency"}
+frost-core = { version="2.1.0", features = ["internals"] }
+frost-secp256k1-tr = {version="2.1.0"}
 
 k256 = { version = "0.13.4", features = ["arithmetic", "expose-field", "hash2curve", "serde"] }
 serde = { version = "1.0.218", features = ["derive"], optional = true }
-rand_core = "0.9.2"
+rand_core = "0.9.3"
 sha2 = "0.10.2"
 secp256k1 = "0.30.0"
 
