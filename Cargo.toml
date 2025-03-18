@@ -14,8 +14,8 @@ frost-secp256k1-tr = {version="2.1.0"}
 
 k256 = { version = "0.13.4", features = ["arithmetic", "expose-field", "hash2curve", "serde"] }
 serde = { version = "1.0.218", features = ["derive"], optional = true }
-rand = "0.9.0"
-rand_core = "0.9.3"
+rand = "0.8"
+rand_core = "0.6"
 sha2 = "0.10.2"
 secp256k1 = "0.30.0"
 

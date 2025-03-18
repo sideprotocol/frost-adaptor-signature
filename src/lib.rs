@@ -22,7 +22,7 @@ pub mod keys {
         use frost_secp256k1_tr::keys::dkg::{round1, round2};
 
         pub fn refresh_dkg_part1(identifier: Identifier, max_signers: u16, min_signers: u16) -> Result<(round1::SecretPackage, round1::Package), frost_core::Error<frost_secp256k1_tr::Secp256K1Sha256TR>> {
-            let rng = &mut rand::rng();
+            let rng = rand::rngs::OsRng;
             frost_core::keys::refresh::refresh_dkg_part_1(identifier, max_signers, min_signers, rng)
         }
         pub fn refresh_dkg_part2(secret_package: round1::SecretPackage, round1_packages: &BTreeMap<Identifier, round1::Package>) -> Result<(round2::SecretPackage, BTreeMap<Identifier, round2::Package>), frost_core::Error<crate::Secp256K1Sha256TR>> {
