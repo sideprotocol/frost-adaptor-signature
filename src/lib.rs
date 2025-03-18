@@ -12,7 +12,26 @@ pub use frost_secp256k1_tr::{
 use k256::{elliptic_curve::ops::MulByGenerator, ProjectivePoint, Scalar};
 
 pub mod keys {
+    // pub use frost_core::keys::*;
     pub use frost_secp256k1_tr::keys::*;
+    pub mod refresh {
+        use std::collections::BTreeMap;
+
+        use frost_secp256k1_tr::keys::{KeyPackage, PublicKeyPackage};
+        use frost_secp256k1_tr::Identifier;
+        use frost_secp256k1_tr::keys::dkg::{round1, round2};
+
+        pub fn refresh_dkg_part1(identifier: Identifier, max_signers: u16, min_signers: u16) -> Result<(round1::SecretPackage, round1::Package), frost_core::Error<frost_secp256k1_tr::Secp256K1Sha256TR>> {
+            let rng = &mut rand::thread_rng();
+            frost_core::keys::refresh::refresh_dkg_part_1(identifier, max_signers, min_signers, rng)
+        }
+        pub fn refresh_dkg_part2(secret_package: round1::SecretPackage, round1_packages: &BTreeMap<Identifier, round1::Package>) -> Result<(round2::SecretPackage, BTreeMap<Identifier, round2::Package>), frost_core::Error<crate::Secp256K1Sha256TR>> {
+            frost_core::keys::refresh::refresh_dkg_part2(secret_package, round1_packages)
+        }
+        pub fn refresh_dkg_shares(round2_secret_package: &round2::SecretPackage, round1_packages: &BTreeMap<Identifier, round1::Package>, round2_packages: &BTreeMap<Identifier, round2::Package>, old_pub_key_package: PublicKeyPackage, old_key_package: KeyPackage) -> Result<(KeyPackage, PublicKeyPackage), frost_core::Error<frost_secp256k1_tr::Secp256K1Sha256TR>> {
+            frost_core::keys::refresh::refresh_dkg_shares(round2_secret_package, round1_packages, round2_packages, old_pub_key_package, old_key_package)
+        }
+    }
 }
 
 pub mod round1 {

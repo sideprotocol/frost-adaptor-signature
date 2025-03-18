@@ -1,8 +1,9 @@
 [package]
 name = "frost-adaptor-signature"
-version = "0.1.1-dev9"
+version = "2.1.0-rc.1"
+authors = ["SIDE Protocol <luis@side.one>"]
 edition = "2021"
-description = "An extention of frost"
+description = "A Schnorr adaptor signature scheme over the secp256k1 curve that supports FROST and Taproot."
 readme = "README.md"
 repository = "https://github.com/sideprotocol/frost-adaptor-signature.git"
 license = "MIT OR Apache-2.0"
@@ -13,6 +14,7 @@ frost-secp256k1-tr = {version="2.1.0"}
 
 k256 = { version = "0.13.4", features = ["arithmetic", "expose-field", "hash2curve", "serde"] }
 serde = { version = "1.0.218", features = ["derive"], optional = true }
+rand = "*"
 rand_core = "0.9.3"
 sha2 = "0.10.2"
 secp256k1 = "0.30.0"
