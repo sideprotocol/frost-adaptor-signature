@@ -174,6 +174,9 @@ pub fn aggregate_with_adaptor_point(
     // Compute the group commitment from signing commitments produced in round one.
     let group_commitment = compute_group_commitment(&signing_package, &binding_factor_list)?;
 
+    // adapted group commitment
+    let adapted_group_commitment = group_commitment.to_element() + adaptor_point.to_element();
+
     // The aggregation of the signature shares by summing them up, resulting in
     // a plain Schnorr signature.
     //
@@ -186,7 +189,7 @@ pub fn aggregate_with_adaptor_point(
         z = z + signature_share.share().0;
     }
 
-    let signature = AdaptorSignature(Signature::new(group_commitment.to_element(), z));
+    let signature = AdaptorSignature(Signature::new(adapted_group_commitment, z));
 
     // Verify the aggregate signature
     signature.verify_signature(
@@ -251,26 +254,24 @@ impl AdaptorSignature {
         public_key: &VerifyingKey,
         adaptor_point: &<Secp256K1Group as Group>::Element,
     ) -> Result<(), Error> {
-        let R = self.0.R().to_owned();
-
-        let adapted_R = R + adaptor_point;
+        let adapted_R = self.0.R().to_owned();
 
         let c = Secp256K1Sha256TR::challenge(&adapted_R, public_key, message)?;
-
-        let effective_R = if !GroupCommitment::<Secp256K1Sha256TR>::from_element(adapted_R).has_even_y()
-        {
-            -R
-        } else {
-            R
-        };
 
         let vk = public_key.to_element();
 
         let zB = Secp256K1Group::generator() * self.0.z();
         let cA = vk * c.to_scalar();
-        let check = (zB - cA - effective_R) * Secp256K1Group::cofactor();
+        let R = zB - cA;
 
-        if check == Secp256K1Group::identity() {
+        let effective_adaptor_point = if !GroupCommitment::<Secp256K1Sha256TR>::from_element(adapted_R).has_even_y()
+        {
+            adapted_R + R
+        } else {
+            adapted_R - R
+        };
+
+        if effective_adaptor_point == *adaptor_point {
             Ok(())
         } else {
             Err(Error::InvalidSignature)
@@ -279,18 +280,14 @@ impl AdaptorSignature {
 
     /// Adapt the adaptor signature with the given adaptor secret.
     pub fn adapt(&self, adaptor_secret: &Scalar) -> Signature {
-
-        let adaptor_point = ProjectivePoint::mul_by_generator(adaptor_secret);
-        let adapted_R = self.0.R() + &adaptor_point;
-
-        let adapted_s = if !GroupCommitment::<Secp256K1Sha256TR>::from_element(adapted_R).has_even_y() {
+        let adapted_s = if !GroupCommitment::<Secp256K1Sha256TR>::from_element(*self.0.R()).has_even_y() {
             self.0.z() - adaptor_secret
         } else {
             self.0.z() + adaptor_secret
         };
 
-        Signature::new(adapted_R, adapted_s)
-    }   
+        Signature::new(*self.0.R(), adapted_s)
+    }
 }
 
 #[cfg(test)]
