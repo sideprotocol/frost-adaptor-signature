@@ -163,7 +163,7 @@ pub mod round2 {
             negate_nonces(&signer_nonces)
         };
 
-        let z_share = lambda_i * Secp256K1ScalarField::deserialize(signer_nonces.hiding().serialize()[..].try_into().unwrap()).unwrap()
+        let z_share = Secp256K1ScalarField::deserialize(signer_nonces.hiding().serialize()[..].try_into().unwrap()).unwrap()
         + (lambda_i * key_package.signing_share().to_scalar() * challenge.to_scalar());
 
         round2::SignatureShare::deserialize(&Secp256K1ScalarField::serialize(&z_share)[..])

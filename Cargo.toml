@@ -1,6 +1,6 @@
 [package]
 name = "frost-adaptor-signature"
-version = "2.1.0-rc.2"
+version = "2.1.0-rc.3"
 authors = ["SIDE Protocol <luis@side.one>"]
 edition = "2021"
 description = "A Schnorr adaptor signature scheme over the secp256k1 curve that supports FROST and Taproot."
